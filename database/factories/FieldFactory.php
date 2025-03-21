@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Field;
+use App\Models\Template;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -9,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class FieldFactory extends Factory
 {
+    protected $model = Field::class;
     /**
      * Define the model's default state.
      *
@@ -17,7 +20,11 @@ class FieldFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'template_id' => Template::factory(),
+            'field_name' => $this->faker->word(),
+            'field_type' => $this->faker->randomElement(['text', 'number', 'date', 'checkbox', 'textarea']),
+            'is_required' => $this->faker->boolean(),
+            'display_order' => $this->faker->numberBetween(1, 10),
         ];
     }
 }
