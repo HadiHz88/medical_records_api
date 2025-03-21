@@ -15,19 +15,29 @@ class TemplateController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validatedTemplate = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
-        $template = Template::create($validated);
+        $validatedFields = $request->validate([
+            'fields' => 'required|array|min:1',
+            'fields.*.field_name' => 'required|string|max:255',
+            'fields.*.field_type' => 'required|string',
+            'fields.*.is_required' => 'boolean',
+            'fields.*.display_order' => 'integer',
+        ]);
 
-        return response()->json($template, 201);
+        $template = Template::create($validatedTemplate);
+        $fields = $template->fields()->createMany($validatedFields['fields']);
+
+        return response()->json('Template created', 201);
     }
 
     public function show($id)
     {
-        return response()->json(Template::findOrFail($id));
+        $template = Template::findOrFail($id)->load('fields');
+        return response()->json($template);
     }
 
     public function update(Request $request, $id)
