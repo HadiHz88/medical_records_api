@@ -23,7 +23,7 @@ class Record extends Model
         return $this->belongsTo(Template::class);
     }
 
-    public function value(): HasMany
+    public function values(): HasMany
     {
         return $this->hasMany(Value::class);
     }

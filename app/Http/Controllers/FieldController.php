@@ -3,47 +3,47 @@
 namespace App\Http\Controllers;
 
 use App\Models\Field;
+use App\Models\Template;
 use Illuminate\Http\Request;
 
 class FieldController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index($template_id)
     {
-        //
+        return response()->json(Field::where('template_id', $template_id)->get());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'template_id' => 'required|exists:templates,id',
+            'field_name' => 'required|string|max:255',
+            'field_type' => 'required|string',
+            'is_required' => 'boolean',
+            'display_order' => 'integer',
+        ]);
+
+        $field = Field::create($validated);
+
+        return response()->json($field, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Field $field)
+    public function update(Request $request, $id)
     {
-        //
+        $field = Field::findOrFail($id);
+        $field->update($request->validate([
+            'field_name' => 'required|string|max:255',
+            'field_type' => 'required|string',
+            'is_required' => 'boolean',
+            'display_order' => 'integer',
+        ]));
+
+        return response()->json($field);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Field $field)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Field $field)
-    {
-        //
+        Field::findOrFail($id)->delete();
+        return response()->json(['message' => 'Field deleted'], 200);
     }
 }

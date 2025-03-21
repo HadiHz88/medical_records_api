@@ -3,47 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Record;
+use App\Models\Template;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RecordController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return response()->json(Record::all());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'template_id' => 'required|exists:templates,id',
+        ]);
+
+        $record = Record::create($validated);
+
+        return response()->json($record, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Record $record)
+    public function show($id)
     {
-        //
+        return response()->json(Record::findOrFail($id));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Record $record)
+    public function destroy($id)
     {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Record $record)
-    {
-        //
+        Record::findOrFail($id)->delete();
+        return response()->json(['message' => 'Record deleted'], 200);
     }
 }

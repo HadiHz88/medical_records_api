@@ -7,43 +7,21 @@ use Illuminate\Http\Request;
 
 class ValueController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index($record_id)
     {
-        //
+        return response()->json(Value::where('record_id', $record_id)->get());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
-    }
+        $validated = $request->validate([
+            'record_id' => 'required|exists:records,id',
+            'field_id' => 'required|exists:fields,id',
+            'value' => 'required|string',
+        ]);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Value $value)
-    {
-        //
-    }
+        $value = Value::create($validated);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Value $value)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Value $value)
-    {
-        //
+        return response()->json($value, 201);
     }
 }

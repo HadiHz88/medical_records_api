@@ -4,46 +4,46 @@ namespace App\Http\Controllers;
 
 use App\Models\Template;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class TemplateController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return response()->json(Template::all());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $template = Template::create($validated);
+
+        return response()->json($template, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Template $template)
+    public function show($id)
     {
-        //
+        return response()->json(Template::findOrFail($id));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Template $template)
+    public function update(Request $request, $id)
     {
-        //
+        $template = Template::findOrFail($id);
+        $template->update($request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]));
+
+        return response()->json($template);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Template $template)
+    public function destroy($id)
     {
-        //
+        Template::findOrFail($id)->delete();
+        return response()->json(['message' => 'Template deleted'], 200);
     }
 }
