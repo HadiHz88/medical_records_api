@@ -6,59 +6,192 @@ use App\Models\Record;
 use App\Models\Template;
 use App\Models\Value;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RecordController extends Controller
 {
-    public function index()
+    /**
+     * Display a listing of records with related data.
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
     {
-        return response()->json(Record::all());
+        $records = Record::with(['template', 'values.field'])->get();
+        return response()->json($records);
     }
 
-    public function store(Request $request)
+    /**
+     * Store a newly created record in storage.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function store(Request $request): JsonResponse
     {
-        // Validate the incoming request
-        $validated = $request->validate([
-            'template_id' => 'required|exists:templates,id',
-        ]);
+        try {
+            DB::beginTransaction();
 
-        // Validate the fields data
-        $validatedFields = $request->validate([
-            'fields' => 'required|array|min:1',
-            'fields.*.field_id' => 'required|exists:fields,id',
-            'fields.*.value' => 'required',
-        ]);
+            $validated = $request->validate([
+                'template_id' => 'required|exists:templates,id',
+                'fields' => 'required|array|min:1',
+                'fields.*.field_id' => 'required|exists:fields,id',
+                'fields.*.value' => 'required',
+            ]);
 
-        // Create a new record
-        $record = Record::create([
-            'template_id' => $validated['template_id'],
-        ]);
+            $record = Record::create([
+                'template_id' => $validated['template_id'],
+            ]);
 
-        // Prepare the data for inserting field values
-        $values = collect($validatedFields['fields'])->map(function ($field) use ($record) {
-            return [
-                'record_id' => $record->id,
-                'field_id' => $field['field_id'],
-                'value' => $field['value'],
-            ];
-        });
+            $values = collect($validated['fields'])->map(function ($field) use ($record) {
+                return [
+                    'record_id' => $record->id,
+                    'field_id' => $field['field_id'],
+                    'value' => $field['value'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            });
 
-        // Insert the field values into the 'values' table
-        Value::insert($values->toArray());
+            Value::insert($values->toArray());
 
-        // Return success response
-        return response()->json("Record created successfully", 201);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Record created successfully',
+                'record' => $record->load(['template', 'values.field']),
+            ], 201);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to create record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-
-    public function show($id)
+    /**
+     * Display the specified record with related data.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
     {
-        return response()->json(Record::findOrFail($id));
+        try {
+            $record = Record::with(['template', 'values.field'])->findOrFail($id);
+            return response()->json($record);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Record not found',
+            ], 404);
+        }
     }
 
-    public function destroy($id)
+    /**
+     * Update the specified record in storage.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function update(Request $request, int $id): JsonResponse
     {
-        Record::findOrFail($id)->delete();
-        return response()->json(['message' => 'Record deleted'], 200);
+        try {
+            DB::beginTransaction();
+
+            $record = Record::findOrFail($id);
+
+            $validated = $request->validate([
+                'template_id' => 'sometimes|exists:templates,id',
+                'fields' => 'sometimes|array',
+                'fields.*.field_id' => 'required|exists:fields,id',
+                'fields.*.value' => 'required',
+            ]);
+
+            if (isset($validated['template_id'])) {
+                $record->update(['template_id' => $validated['template_id']]);
+            }
+
+            if (isset($validated['fields'])) {
+                // Delete existing values to prevent duplicates
+                Value::where('record_id', $record->id)->delete();
+
+                $values = collect($validated['fields'])->map(function ($field) use ($record) {
+                    return [
+                        'record_id' => $record->id,
+                        'field_id' => $field['field_id'],
+                        'value' => $field['value'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                });
+
+                Value::insert($values->toArray());
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Record updated successfully',
+                'record' => $record->fresh(['template', 'values.field']),
+            ]);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to update record',
+                'error' => $e->getMessage(),
+            ], $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException ? 404 : 500);
+        }
+    }
+
+    /**
+     * Remove the specified record from storage.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $record = Record::findOrFail($id);
+
+            // Delete associated values first
+            Value::where('record_id', $id)->delete();
+
+            // Delete the record
+            $record->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Record deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to delete record',
+                'error' => $e->getMessage(),
+            ], $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException ? 404 : 500);
+        }
     }
 }
