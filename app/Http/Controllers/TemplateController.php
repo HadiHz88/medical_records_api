@@ -10,7 +10,9 @@ class TemplateController extends Controller
 {
     public function index()
     {
-        return response()->json(Template::all());
+        $templates = Template::withCount('records')->get();
+
+        return response()->json($templates);
     }
 
     public function store(Request $request)
@@ -31,7 +33,9 @@ class TemplateController extends Controller
         $template = Template::create($validatedTemplate);
         $fields = $template->fields()->createMany($validatedFields['fields']);
 
-        return response()->json('Template created', 201);
+        return response()->json([
+            "status" => "template successfully created",
+        ], 201);
     }
 
     public function show($id)
