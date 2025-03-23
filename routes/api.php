@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Record;
+use App\Models\Template;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TemplateController;
@@ -9,7 +11,11 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::get('/', function () {
+   $latestTemplates = Template::latest()->with('records')->get()->take(4);
 
+    return json_encode($latestTemplates);
+});
 
 Route::prefix('templates')->group(function () {
     Route::get('/', [TemplateController::class, 'index']); // Get all templates
