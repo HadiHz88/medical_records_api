@@ -12,9 +12,13 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/', function () {
-   $latestTemplates = Template::latest()->with('records')->get()->take(4);
+   $templatesCount = Template::count();
+    $recordsCount = Record::count();
 
-    return json_encode($latestTemplates);
+    return response()->json([
+        'templatesCount' => $templatesCount,
+        'recordsCount' => $recordsCount,
+    ]);
 });
 
 Route::prefix('templates')->group(function () {
