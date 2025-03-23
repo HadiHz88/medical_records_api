@@ -19,7 +19,7 @@ class RecordController extends Controller
      */
     public function index(): JsonResponse
     {
-        $records = Record::with(['template', 'values.field'])->get();
+        $records = Record::with(['template', 'values'])->get();
         return response()->json($records);
     }
 
