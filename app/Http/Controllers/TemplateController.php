@@ -10,9 +10,7 @@ class TemplateController extends Controller
 {
     public function index()
     {
-        $templates = Template::with(['fields' => function ($query) {
-            $query->select('id', 'field_name', 'template_id');
-        }])->withCount('records')->get();
+        $templates = Template::with(['fields'])->withCount('records')->get();
 
         return response()->json($templates);
     }
@@ -54,12 +52,25 @@ class TemplateController extends Controller
             'description' => 'nullable|string',
         ]));
 
+        $fields = $request->validate([
+            'fields' => 'required|array|min:1',
+            'fields.*.field_name' => 'required|string|max:255',
+            'fields.*.field_type' => 'required|string',
+            'fields.*.is_required' => 'boolean',
+            'fields.*.display_order' => 'integer',
+        ]);
+
+        $template->fields()->delete();
+
+        $template->fields()->createMany($fields['fields']);
+
         return response()->json($template);
     }
 
     public function destroy($id)
     {
         Template::findOrFail($id)->delete();
+
         return response()->json(['message' => 'Template deleted'], 200);
     }
 }
