@@ -61,7 +61,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record created successfully',
-                'record' => $record->load(['template', 'values.field']),
+                'record' => $record->load(['template', 'values']),
             ], 201);
 
         } catch (ValidationException $e) {
@@ -143,7 +143,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record updated successfully',
-                'record' => $record->fresh(['template', 'values.field']),
+                'record' => $record->fresh(['template', 'values']),
             ]);
 
         } catch (ValidationException $e) {

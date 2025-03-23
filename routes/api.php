@@ -95,6 +95,11 @@ Route::prefix('records')->group(function () {
     Route::get('/{id}', [RecordController::class, 'show']);
 
     /**
+     * Update a record by ID.
+     */
+    Route::put('/{id}', [RecordController::class, 'update']);
+
+    /**
      * Delete a record by ID.
      *
      * @param int $id
