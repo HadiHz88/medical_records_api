@@ -10,7 +10,9 @@ class TemplateController extends Controller
 {
     public function index()
     {
-        $templates = Template::withCount('records')->get();
+        $templates = Template::with(['fields' => function ($query) {
+            $query->select('id', 'field_name', 'template_id');
+        }])->withCount('records')->get();
 
         return response()->json($templates);
     }
