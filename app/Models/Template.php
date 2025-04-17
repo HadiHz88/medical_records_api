@@ -25,4 +25,9 @@ class Template extends Model
     {
         return $this->hasMany(Record::class);
     }
+
+    public function permissions(): HasMany
+    {
+        return $this->hasMany(Permission::class);
+    }
 }
