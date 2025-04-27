@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\AuthController;
 
 /**
  * Endpoint to get the count of templates and records.
@@ -22,88 +24,44 @@ Route::get('/counts', function () {
     ]);
 });
 
-/**
- * Grouped routes for template-related operations.
- */
-Route::prefix('templates')->group(function () {
-    /**
-     * Get all templates.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::get('/', [TemplateController::class, 'index']);
+// Public routes
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
-    /**
-     * Create a new template.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::post('/', [TemplateController::class, 'store']);
+// Protected routes
+Route::middleware('auth:sanctum')->group(function () {
+    // User routes
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-    /**
-     * Get a single template by ID.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::get('/{id}', [TemplateController::class, 'show']);
+    // Template routes with RBAC
+    Route::middleware('admin')->group(function () {
+        Route::post('/templates', [TemplateController::class, 'store']);
+        Route::put('/templates/{template}', [TemplateController::class, 'update']);
+        Route::delete('/templates/{template}', [TemplateController::class, 'destroy']);
+    });
 
-    /**
-     * Update a template by ID.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::put('/{id}', [TemplateController::class, 'update']);
+    // Template permission routes
+    Route::middleware('admin')->group(function () {
+        Route::post('/templates/{template}/permissions', [PermissionController::class, 'assign']);
+        Route::delete('/templates/{template}/permissions/{user}', [PermissionController::class, 'revoke']);
+        Route::get('/templates/{template}/permissions', [PermissionController::class, 'index']);
+    });
 
-    /**
-     * Delete a template by ID.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::delete('/{id}', [TemplateController::class, 'destroy']);
-});
+    // Template access routes
+    Route::middleware('template.access')->group(function () {
+        Route::get('/templates', [TemplateController::class, 'index']);
+        Route::get('/templates/{template}', [TemplateController::class, 'show']);
+    });
 
-/**
- * Grouped routes for record-related operations.
- */
-Route::prefix('records')->group(function () {
-    /**
-     * Get all records.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::get('/', [RecordController::class, 'index']);
-
-    /**
-     * Create a new record.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::post('/', [RecordController::class, 'store']);
-
-    /**
-     * Get a single record by ID.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::get('/{id}', [RecordController::class, 'show']);
-
-    /**
-     * Update a record by ID.
-     */
-    Route::put('/{id}', [RecordController::class, 'update']);
-
-    /**
-     * Delete a record by ID.
-     *
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    Route::delete('/{id}', [RecordController::class, 'destroy']);
+    // Record routes
+    Route::middleware('template.access')->group(function () {
+        Route::get('/records', [RecordController::class, 'index']);
+        Route::post('/records', [RecordController::class, 'store']);
+        Route::get('/records/{record}', [RecordController::class, 'show']);
+        Route::put('/records/{record}', [RecordController::class, 'update']);
+        Route::delete('/records/{record}', [RecordController::class, 'destroy']);
+    });
 });
