@@ -6,6 +6,7 @@ use App\Models\Field;
 use App\Models\Record;
 use App\Models\Template;
 use App\Models\User;
+use App\Models\Admin;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use App\Models\Value;
 use Illuminate\Database\Seeder;
@@ -18,24 +19,30 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $admin = [
-            'name' => 'admin1234',
+        $users = [
+          ['name' => 'John Doe', 'email' => 'john@example.com', 'password' => 'pass1234'],
+          ['name' => 'Alice Dean', 'email' => 'alice@example.com', 'password' => 'pass1234'],
+          ['name' => 'Hadi', 'email' => 'hadi@example.com', 'password' => 'pass1234'],
+        ];
+
+        foreach ($users as $user) {
+            User::create([
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'password' => Hash::make($user['password']),
+            ]);
+        }
+
+        // Create a fake admin
+        $adminUser = User::create([
+            'name' => 'Admin User',
             'email' => 'admin@example.com',
-            'email_verified_at' => now(),
-            'password' => Hash::make('pass1234'),
-            'role' => 'admin'
-        ];
+            'password' => Hash::make('admin1234'),
+        ]);
 
-        User::create($admin);
-
-        $user = [
-            'name' => 'user1234',
-            'email' => 'user@example.com',
-            'email_verified_at' => now(),
-            'password' => Hash::make('pass1234'),
-            'role' => 'user'
-        ];
-
-        User::create($user);
+        Admin::create([
+            'user_id' => $adminUser->id,
+        ]);
     }
 }
+

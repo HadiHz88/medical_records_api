@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -15,8 +16,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'password',
-        'role'
+        'password'
     ];
 
     protected $hidden = [
@@ -34,9 +34,14 @@ class User extends Authenticatable
         return $this->hasMany(Permission::class);
     }
 
+    public function admin(): HasOne
+    {
+        return $this->hasOne(Admin::class);
+    }
+
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->admin()->exists();
     }
 
     public function hasPermissionTo($templateId): bool
@@ -49,4 +54,4 @@ class User extends Authenticatable
             ->where('template_id', $templateId)
             ->exists();
     }
-} 
+}
