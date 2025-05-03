@@ -13,8 +13,8 @@ class Option extends Model
 
     protected $fillable = [
         'field_id',
-        'label',
-        'value',
+        'option_name',
+        'option_value',
         'display_order',
     ];
 

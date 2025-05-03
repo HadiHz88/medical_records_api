@@ -25,8 +25,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignIdFor(Record::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(Field::class)->constrained()->cascadeOnDelete();
-            $table->text('value');
-            $table->foreignIdFor(Option::class)->nullable()->constrained()->cascadeOnDelete();
+            $table->text('value')->nullable();
+            $table->foreignIdFor(Option::class)->nullable()->constrained()->nullOnDelete();
             $table->timestamps();
         });
     }

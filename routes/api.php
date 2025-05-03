@@ -56,8 +56,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/templates/{template}', [TemplateController::class, 'show']);
     });
 
-    // Record routes
-    Route::middleware('template.access')->group(function () {
+    // Record routes - accessible by both admin and users with template access
+    Route::middleware(['admin', 'template.access'])->group(function () {
         Route::get('/records', [RecordController::class, 'index']);
         Route::post('/records', [RecordController::class, 'store']);
         Route::get('/records/{record}', [RecordController::class, 'show']);

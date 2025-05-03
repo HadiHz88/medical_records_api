@@ -3,7 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Models\Field;
+use App\Models\Value;
+use App\Models\Option;
 
 return new class extends Migration
 {
@@ -12,12 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('options', function (Blueprint $table) {
+        Schema::create('multiple_selections', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(Field::class)->constrained()->cascadeOnDelete();
-            $table->string('option_name');
-            $table->string('option_value');
-            $table->boolean('display_order');
+            $table->foreignIdFor(Value::class)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(Option::class)->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('options');
+        Schema::dropIfExists('multiple_selections');
     }
 };

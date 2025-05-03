@@ -13,11 +13,17 @@ class Field extends Model
     use HasFactory;
 
     protected $fillable = [
+        'template_id',
         'field_name',
         'field_type',
-        'display_order',
         'is_required',
-        'template_id'
+        'display_order',
+        'is_multiple',
+    ];
+
+    protected $casts = [
+        'is_required' => 'boolean',
+        'is_multiple' => 'boolean',
     ];
 
     public function template(): BelongsTo
