@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Value extends Model
 {
@@ -15,6 +16,7 @@ class Value extends Model
         'record_id',
         'field_id',
         'value',
+        'option_id',
     ];
 
     public function record(): BelongsTo
@@ -22,8 +24,18 @@ class Value extends Model
         return $this->belongsTo(Record::class);
     }
 
-    public function filed(): BelongsTo
+    public function field(): BelongsTo
     {
         return $this->belongsTo(Field::class, 'field_id');
+    }
+
+    public function option(): BelongsTo
+    {
+        return $this->belongsTo(Option::class, 'option_id');
+    }
+
+    public function multipleSelections(): HasMany
+    {
+        return $this->hasMany(MultipleSelection::class);
     }
 }
