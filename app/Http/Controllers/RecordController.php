@@ -7,7 +7,6 @@ use App\Models\Template;
 use App\Models\Value;
 use App\Models\Field;
 use App\Models\Option;
-use App\Models\MultipleSelection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -38,9 +37,7 @@ class RecordController extends Controller
             'template_id' => 'required|exists:templates,id',
             'fields' => 'required|array',
             'fields.*.field_id' => 'required|exists:fields,id',
-            'fields.*.value' => 'required_if:fields.*.values,null',
-            'fields.*.values' => 'required_if:fields.*.value,null|array',
-            'fields.*.values.*' => 'string',
+            'fields.*.value' => 'required',
         ]);
 
         try {
@@ -53,60 +50,31 @@ class RecordController extends Controller
             foreach ($validated['fields'] as $fieldData) {
                 $field = Field::find($fieldData['field_id']);
 
-                if ($field->is_required && empty($fieldData['value']) && empty($fieldData['values'])) {
+                if ($field->is_required && empty($fieldData['value'])) {
                     throw ValidationException::withMessages([
                         'fields' => "Field {$field->field_name} is required"
                     ]);
                 }
 
-                if ($field->field_type === 'select' && $field->is_multiple) {
-                    // Handle multiple selections
-                    if (!empty($fieldData['values'])) {
-                        $value = Value::create([
-                            'record_id' => $record->id,
-                            'field_id' => $field->id,
-                            'value' => null, // We'll store the actual values in multiple_selections
-                        ]);
+                if (!empty($fieldData['value'])) {
+                    $value = Value::create([
+                        'record_id' => $record->id,
+                        'field_id' => $field->id,
+                        'value' => $fieldData['value'],
+                    ]);
 
-                        foreach ($fieldData['values'] as $optionValue) {
-                            $option = $field->options()
-                                ->where('option_value', $optionValue)
-                                ->first();
+                    if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
+                        $option = $field->options()
+                            ->where('option_value', $fieldData['value'])
+                            ->first();
 
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value '{$optionValue}' for field {$field->field_name}"
-                                ]);
-                            }
-
-                            MultipleSelection::create([
-                                'value_id' => $value->id,
-                                'option_id' => $option->id,
+                        if (!$option) {
+                            throw ValidationException::withMessages([
+                                'fields' => "Invalid option value for field {$field->field_name}"
                             ]);
                         }
-                    }
-                } else {
-                    // Handle single value
-                    if (!empty($fieldData['value'])) {
-                        $value = Value::create([
-                            'record_id' => $record->id,
-                            'field_id' => $field->id,
-                            'value' => $fieldData['value'],
-                        ]);
 
-                        if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
-                            $option = $field->options()
-                                ->where('option_value', $fieldData['value'])
-                                ->first();
-
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value for field {$field->field_name}"
-                                ]);
-                            }
-
-                            $value->update(['option_id' => $option->id]);
-                        }
+                        $value->update(['option_id' => $option->id]);
                     }
                 }
             }
@@ -115,7 +83,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record created successfully',
-                'record' => $record->load('values.field', 'values.option', 'values.multipleSelections.option'),
+                'record' => $record->load('values.field', 'values.option'),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -158,9 +126,7 @@ class RecordController extends Controller
             $validated = $request->validate([
                 'fields' => 'required|array',
                 'fields.*.field_id' => 'required|exists:fields,id',
-                'fields.*.value' => 'required_if:fields.*.values,null',
-                'fields.*.values' => 'required_if:fields.*.value,null|array',
-                'fields.*.values.*' => 'string',
+                'fields.*.value' => 'required',
             ]);
 
             foreach ($validated['fields'] as $fieldData) {
@@ -169,76 +135,38 @@ class RecordController extends Controller
                     ->where('field_id', $field->id)
                     ->first();
 
-                if ($field->is_required && empty($fieldData['value']) && empty($fieldData['values'])) {
+                if ($field->is_required && empty($fieldData['value'])) {
                     throw ValidationException::withMessages([
                         'fields' => "Field {$field->field_name} is required"
                     ]);
                 }
 
-                if ($field->field_type === 'select' && $field->is_multiple) {
-                    // Handle multiple selections
-                    if (!empty($fieldData['values'])) {
-                        if (!$value) {
-                            $value = Value::create([
-                                'record_id' => $record->id,
-                                'field_id' => $field->id,
-                                'value' => null,
-                            ]);
-                        }
-
-                        // Delete existing multiple selections
-                        $value->multipleSelections()->delete();
-
-                        // Create new multiple selections
-                        foreach ($fieldData['values'] as $optionValue) {
-                            $option = $field->options()
-                                ->where('option_value', $optionValue)
-                                ->first();
-
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value '{$optionValue}' for field {$field->field_name}"
-                                ]);
-                            }
-
-                            MultipleSelection::create([
-                                'value_id' => $value->id,
-                                'option_id' => $option->id,
-                            ]);
-                        }
-                    } elseif ($value) {
-                        $value->multipleSelections()->delete();
-                        $value->delete();
+                if (!empty($fieldData['value'])) {
+                    if (!$value) {
+                        $value = Value::create([
+                            'record_id' => $record->id,
+                            'field_id' => $field->id,
+                            'value' => $fieldData['value'],
+                        ]);
+                    } else {
+                        $value->update(['value' => $fieldData['value']]);
                     }
-                } else {
-                    // Handle single value
-                    if (!empty($fieldData['value'])) {
-                        if (!$value) {
-                            $value = Value::create([
-                                'record_id' => $record->id,
-                                'field_id' => $field->id,
-                                'value' => $fieldData['value'],
+
+                    if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
+                        $option = $field->options()
+                            ->where('option_value', $fieldData['value'])
+                            ->first();
+
+                        if (!$option) {
+                            throw ValidationException::withMessages([
+                                'fields' => "Invalid option value for field {$field->field_name}"
                             ]);
-                        } else {
-                            $value->update(['value' => $fieldData['value']]);
                         }
 
-                        if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
-                            $option = $field->options()
-                                ->where('option_value', $fieldData['value'])
-                                ->first();
-
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value for field {$field->field_name}"
-                                ]);
-                            }
-
-                            $value->update(['option_id' => $option->id]);
-                        }
-                    } elseif ($value) {
-                        $value->delete();
+                        $value->update(['option_id' => $option->id]);
                     }
+                } elseif ($value) {
+                    $value->delete();
                 }
             }
 
@@ -246,21 +174,11 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record updated successfully',
-                'record' => $record->fresh(['template', 'values.field', 'values.option', 'values.multipleSelections.option']),
+                'record' => $record->fresh(['template', 'values.field', 'values.option']),
             ]);
-
-        } catch (ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to update record',
-                'error' => $e->getMessage(),
-            ], $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException ? 404 : 500);
+            throw $e;
         }
     }
 
@@ -273,28 +191,16 @@ class RecordController extends Controller
     public function destroy(int $id): JsonResponse
     {
         try {
-            DB::beginTransaction();
-
             $record = Record::findOrFail($id);
-
-            // Delete associated values first
-            Value::where('record_id', $id)->delete();
-
-            // Delete the record
             $record->delete();
-
-            DB::commit();
 
             return response()->json([
                 'message' => 'Record deleted successfully'
             ]);
-
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
-                'message' => 'Failed to delete record',
-                'error' => $e->getMessage(),
-            ], $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException ? 404 : 500);
+                'message' => 'Record not found',
+            ], 404);
         }
     }
 }
