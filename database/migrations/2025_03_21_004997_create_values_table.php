@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Field;
+use App\Models\Option;
 use App\Models\Record;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -15,6 +16,7 @@ return new class extends Migration {
      * - record_id: Foreign key referencing the 'records' table, with cascade on delete
      * - field_id: Foreign key referencing the 'fields' table, with cascade on delete
      * - value: Text, required
+     * - option_id: Foreign key referencing the 'options' table, nullable
      * - timestamps: Created at and updated at timestamps
      */
     public function up(): void
@@ -24,6 +26,7 @@ return new class extends Migration {
             $table->foreignIdFor(Record::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(Field::class)->constrained()->cascadeOnDelete();
             $table->text('value');
+            $table->foreignIdFor(Option::class)->nullable()->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }

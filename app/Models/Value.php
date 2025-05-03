@@ -15,6 +15,7 @@ class Value extends Model
         'record_id',
         'field_id',
         'value',
+        'option_id',
     ];
 
     public function record(): BelongsTo
@@ -22,8 +23,13 @@ class Value extends Model
         return $this->belongsTo(Record::class);
     }
 
-    public function filed(): BelongsTo
+    public function field(): BelongsTo
     {
         return $this->belongsTo(Field::class, 'field_id');
+    }
+
+    public function option(): BelongsTo
+    {
+        return $this->belongsTo(Option::class, 'option_id');
     }
 }

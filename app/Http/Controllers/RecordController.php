@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Record;
 use App\Models\Template;
 use App\Models\Value;
+use App\Models\Field;
+use App\Models\Option;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class RecordController extends Controller
      */
     public function index(): JsonResponse
     {
-        $records = Record::with(['template', 'values'])->get();
+        $records = Record::with(['template', 'values.field', 'values.option'])->get();
         return response()->json($records);
     }
 
@@ -46,10 +48,36 @@ class RecordController extends Controller
             ]);
 
             $values = collect($validated['fields'])->map(function ($field) use ($record) {
+                $fieldModel = Field::find($field['field_id']);
+                $value = $field['value'];
+
+                // If the field has options, validate that the value is a valid option
+                if (in_array($fieldModel->field_type, ['select', 'radio', 'checkbox'])) {
+                    $option = $fieldModel->options()
+                        ->where('option_value', $value)
+                        ->first();
+
+                    if (!$option) {
+                        throw ValidationException::withMessages([
+                            'fields' => "Invalid option value for field {$fieldModel->field_name}"
+                        ]);
+                    }
+
+                    return [
+                        'record_id' => $record->id,
+                        'field_id' => $field['field_id'],
+                        'value' => $value,
+                        'option_id' => $option->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+
                 return [
                     'record_id' => $record->id,
                     'field_id' => $field['field_id'],
-                    'value' => $field['value'],
+                    'value' => $value,
+                    'option_id' => null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -61,7 +89,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record created successfully',
-                'record' => $record->load(['template', 'values']),
+                'record' => $record->load(['template', 'values.field', 'values.option']),
             ], 201);
 
         } catch (ValidationException $e) {
@@ -88,7 +116,7 @@ class RecordController extends Controller
     public function show(int $id): JsonResponse
     {
         try {
-            $record = Record::with(['template', 'values.field'])->findOrFail($id);
+            $record = Record::with(['template', 'values.field', 'values.option'])->findOrFail($id);
             return response()->json($record);
         } catch (\Exception $e) {
             return response()->json([
@@ -127,10 +155,36 @@ class RecordController extends Controller
                 Value::where('record_id', $record->id)->delete();
 
                 $values = collect($validated['fields'])->map(function ($field) use ($record) {
+                    $fieldModel = Field::find($field['field_id']);
+                    $value = $field['value'];
+
+                    // If the field has options, validate that the value is a valid option
+                    if (in_array($fieldModel->field_type, ['select', 'radio', 'checkbox'])) {
+                        $option = $fieldModel->options()
+                            ->where('option_value', $value)
+                            ->first();
+
+                        if (!$option) {
+                            throw ValidationException::withMessages([
+                                'fields' => "Invalid option value for field {$fieldModel->field_name}"
+                            ]);
+                        }
+
+                        return [
+                            'record_id' => $record->id,
+                            'field_id' => $field['field_id'],
+                            'value' => $value,
+                            'option_id' => $option->id,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+
                     return [
                         'record_id' => $record->id,
                         'field_id' => $field['field_id'],
-                        'value' => $field['value'],
+                        'value' => $value,
+                        'option_id' => null,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -143,7 +197,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record updated successfully',
-                'record' => $record->fresh(['template', 'values']),
+                'record' => $record->fresh(['template', 'values.field', 'values.option']),
             ]);
 
         } catch (ValidationException $e) {

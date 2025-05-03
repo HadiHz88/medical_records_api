@@ -29,4 +29,9 @@ class Field extends Model
     {
         return $this->hasMany(Value::class);
     }
+
+    public function options(): HasMany
+    {
+        return $this->hasMany(Option::class);
+    }
 }

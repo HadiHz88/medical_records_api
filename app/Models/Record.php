@@ -36,4 +36,9 @@ class Record extends Model
 
         return $value ? $value->value : null;
     }
+
+    public function selectedOptions()
+    {
+        return $this->belongsToMany(Option::class, 'record_option')->withTimestamps();
+    }
 }

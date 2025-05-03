@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Template;
 use App\Models\Field;
+use App\Models\Option;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class TemplateController extends Controller
      */
     public function index(): JsonResponse
     {
-        $templates = Template::with(['fields'])
+        $templates = Template::with(['fields.options'])
             ->withCount('records')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -43,9 +44,13 @@ class TemplateController extends Controller
                 'description' => 'nullable|string',
                 'fields' => 'required|array|min:1',
                 'fields.*.field_name' => 'required|string|max:255',
-                'fields.*.field_type' => 'required|string|in:text,number,date,boolean,select',
+                'fields.*.field_type' => 'required|string|in:text,number,date,boolean,select,radio,checkbox',
                 'fields.*.is_required' => 'boolean',
                 'fields.*.display_order' => 'integer',
+                'fields.*.options' => 'nullable|array', // Only for select, radio, checkbox
+                'fields.*.options.*.option_name' => 'required|string', // Option name for select, radio, checkbox
+                'fields.*.options.*.option_value' => 'required|string', // Option value for select, radio, checkbox
+                'fields.*.options.*.display_order' => 'boolean', // Option display order
             ]);
 
             $template = Template::create([
@@ -53,22 +58,36 @@ class TemplateController extends Controller
                 'description' => $validated['description'] ?? null,
             ]);
 
-            $fields = collect($validated['fields'])->map(function ($field, $index) {
-                return [
-                    'field_name' => $field['field_name'],
-                    'field_type' => $field['field_type'],
-                    'is_required' => $field['is_required'] ?? false,
-                    'display_order' => $field['display_order'] ?? $index + 1,
-                ];
-            });
+            foreach ($validated['fields'] as $index => $fieldData) {
+                $field = $template->fields()->create([
+                    'field_name' => $fieldData['field_name'],
+                    'field_type' => $fieldData['field_type'],
+                    'is_required' => $fieldData['is_required'] ?? false,
+                    'display_order' => $fieldData['display_order'] ?? $index + 1,
+                ]);
 
-            $template->fields()->createMany($fields);
+                // Create options for select/radio/checkbox fields
+                if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox']) && isset($fieldData['options'])) {
+                    $options = collect($fieldData['options'])->map(function ($option, $optionIndex) use ($field) {
+                        return [
+                            'field_id' => $field->id,
+                            'option_name' => $option['option_name'],
+                            'option_value' => $option['option_value'],
+                            'display_order' => $option['display_order'] ?? false,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    });
+
+                    Option::insert($options->toArray());
+                }
+            }
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Template created successfully',
-                'template' => $template->load('fields'),
+                'template' => $template->load(['fields.options']),
             ], 201);
 
         } catch (ValidationException $e) {
@@ -95,7 +114,7 @@ class TemplateController extends Controller
     public function show(int $id): JsonResponse
     {
         try {
-            $template = Template::with(['fields' => function ($query) {
+            $template = Template::with(['fields.options' => function ($query) {
                 $query->orderBy('display_order', 'asc');
             }])->withCount('records')->findOrFail($id);
 
@@ -132,9 +151,14 @@ class TemplateController extends Controller
                 'fields' => 'sometimes|required|array|min:1',
                 'fields.*.id' => 'nullable|integer|exists:fields,id',
                 'fields.*.field_name' => 'required|string|max:255',
-                'fields.*.field_type' => 'required|string|in:text,number,date,boolean,select',
+                'fields.*.field_type' => 'required|string|in:text,number,date,boolean,select,radio,checkbox',
                 'fields.*.is_required' => 'boolean',
                 'fields.*.display_order' => 'integer',
+                'fields.*.options' => 'nullable|array', // Only for select, radio, checkbox
+                'fields.*.options.*.id' => 'nullable|integer|exists:options,id',
+                'fields.*.options.*.option_name' => 'required|string',
+                'fields.*.options.*.option_value' => 'required|string',
+                'fields.*.options.*.display_order' => 'boolean',
             ]);
 
             if (isset($validated['name']) || isset($validated['description'])) {
@@ -145,39 +169,9 @@ class TemplateController extends Controller
             }
 
             if (isset($validated['fields'])) {
-                // Check if template has records before deleting fields
-                $hasRecords = $template->records()->exists();
+                $existingFieldIds = $template->fields()->pluck('id')->toArray();
+                $updatedFieldIds = [];
 
-                if ($hasRecords) {
-                    // For templates with records, we need to be careful with field updates
-                    // Get existing field IDs
-                    $existingFieldIds = $template->fields()->pluck('id')->toArray();
-                    $updatedFieldIds = collect($validated['fields'])->pluck('id')->filter()->toArray();
-
-                    // Get fields to delete (fields in existing but not in updated)
-                    $fieldsToDelete = array_diff($existingFieldIds, $updatedFieldIds);
-
-                    // Check if fields to delete have values
-                    $fieldsWithValues = DB::table('values')
-                        ->whereIn('field_id', $fieldsToDelete)
-                        ->exists();
-
-                    if ($fieldsWithValues) {
-                        DB::rollBack();
-                        return response()->json([
-                            'message' => 'Cannot delete fields that have values associated with records',
-                        ], 422);
-                    }
-
-                    // Delete fields that are safe to delete
-                    Field::whereIn('id', $fieldsToDelete)->delete();
-
-                } else {
-                    // For templates without records, we can safely delete all fields
-                    $template->fields()->delete();
-                }
-
-                // Create or update fields
                 foreach ($validated['fields'] as $index => $fieldData) {
                     $fieldId = $fieldData['id'] ?? null;
                     $fieldAttributes = [
@@ -187,13 +181,68 @@ class TemplateController extends Controller
                         'display_order' => $fieldData['display_order'] ?? $index + 1,
                     ];
 
-                    if ($fieldId && $hasRecords) {
-                        Field::where('id', $fieldId)
-                            ->where('template_id', $template->id)
-                            ->update($fieldAttributes);
+                    if ($fieldId) {
+                        $field = Field::find($fieldId);
+                        $field->update($fieldAttributes);
+                        $updatedFieldIds[] = $fieldId;
+
+                        // Handle options for select/radio/checkbox fields
+                        if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox']) && isset($fieldData['options'])) {
+                            $existingOptionIds = $field->options()->pluck('id')->toArray();
+                            $updatedOptionIds = [];
+
+                            foreach ($fieldData['options'] as $optionIndex => $optionData) {
+                                $optionId = $optionData['id'] ?? null;
+                                $optionAttributes = [
+                                    'option_name' => $optionData['option_name'],
+                                    'option_value' => $optionData['option_value'],
+                                    'display_order' => $optionData['display_order'] ?? false,
+                                ];
+
+                                if ($optionId) {
+                                    $option = Option::find($optionId);
+                                    $option->update($optionAttributes);
+                                    $updatedOptionIds[] = $optionId;
+                                } else {
+                                    $option = $field->options()->create($optionAttributes);
+                                    $updatedOptionIds[] = $option->id;
+                                }
+                            }
+
+                            // Delete options that were not included in the update
+                            $optionsToDelete = array_diff($existingOptionIds, $updatedOptionIds);
+                            if (!empty($optionsToDelete)) {
+                                Option::whereIn('id', $optionsToDelete)->delete();
+                            }
+                        } else {
+                            // If field type changed to non-option type, delete all options
+                            $field->options()->delete();
+                        }
                     } else {
-                        $template->fields()->create($fieldAttributes);
+                        $field = $template->fields()->create($fieldAttributes);
+
+                        // Create options for new select/radio/checkbox fields
+                        if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox']) && isset($fieldData['options'])) {
+                            $options = collect($fieldData['options'])->map(function ($option, $optionIndex) use ($field) {
+                                return [
+                                    'field_id' => $field->id,
+                                    'option_name' => $option['option_name'],
+                                    'option_value' => $option['option_value'],
+                                    'display_order' => $option['display_order'] ?? false,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                            });
+
+                            Option::insert($options->toArray());
+                        }
                     }
+                }
+
+                // Delete fields that were not included in the update
+                $fieldsToDelete = array_diff($existingFieldIds, $updatedFieldIds);
+                if (!empty($fieldsToDelete)) {
+                    Field::whereIn('id', $fieldsToDelete)->delete();
                 }
             }
 
@@ -201,7 +250,7 @@ class TemplateController extends Controller
 
             return response()->json([
                 'message' => 'Template updated successfully',
-                'template' => $template->fresh(['fields' => function ($query) {
+                'template' => $template->fresh(['fields.options' => function ($query) {
                     $query->orderBy('display_order', 'asc');
                 }]),
             ]);
@@ -247,10 +296,7 @@ class TemplateController extends Controller
                 ], 422);
             }
 
-            // Delete fields first
-            $template->fields()->delete();
-
-            // Delete template
+            // Delete the template (cascade will handle fields and options)
             $template->delete();
 
             DB::commit();
