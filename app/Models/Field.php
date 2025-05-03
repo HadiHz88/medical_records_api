@@ -18,12 +18,10 @@ class Field extends Model
         'field_type',
         'is_required',
         'display_order',
-        'is_multiple',
     ];
 
     protected $casts = [
         'is_required' => 'boolean',
-        'is_multiple' => 'boolean',
     ];
 
     public function template(): BelongsTo

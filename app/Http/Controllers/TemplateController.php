@@ -44,7 +44,6 @@ class TemplateController extends Controller
             'fields.*.field_type' => 'required|string|in:text,select,radio,checkbox,date,number,boolean',
             'fields.*.is_required' => 'required|boolean',
             'fields.*.display_order' => 'required|integer|min:0',
-            'fields.*.is_multiple' => 'required|boolean',
             'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|array',
             'fields.*.options.*.option_name' => 'required|string|max:255',
             'fields.*.options.*.option_value' => 'required|string|max:255',
@@ -66,7 +65,6 @@ class TemplateController extends Controller
                     'field_type' => $fieldData['field_type'],
                     'is_required' => $fieldData['is_required'],
                     'display_order' => $fieldData['display_order'],
-                    'is_multiple' => $fieldData['is_multiple'],
                 ]);
 
                 if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox'])) {
@@ -141,7 +139,6 @@ class TemplateController extends Controller
                 'fields.*.field_type' => 'required|string|in:text,select,radio,checkbox,date,number,boolean',
                 'fields.*.is_required' => 'required|boolean',
                 'fields.*.display_order' => 'required|integer|min:0',
-                'fields.*.is_multiple' => 'required|boolean',
                 'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|array',
                 'fields.*.options.*.option_name' => 'required|string|max:255',
                 'fields.*.options.*.option_value' => 'required|string|max:255',
@@ -167,7 +164,6 @@ class TemplateController extends Controller
                         'field_type' => $fieldData['field_type'],
                         'is_required' => $fieldData['is_required'],
                         'display_order' => $fieldData['display_order'],
-                        'is_multiple' => $fieldData['is_multiple'],
                     ]);
 
                     if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox'])) {
@@ -191,7 +187,6 @@ class TemplateController extends Controller
                     $query->orderBy('display_order', 'asc');
                 }]),
             ]);
-
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return response()->json([
@@ -241,7 +236,6 @@ class TemplateController extends Controller
             return response()->json([
                 'message' => 'Template deleted successfully',
             ]);
-
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return response()->json([

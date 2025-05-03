@@ -27,7 +27,6 @@ return new class extends Migration {
             $table->string('field_type');
             $table->boolean('is_required')->default(false);
             $table->integer('display_order')->default(1);
-            $table->boolean('is_multiple')->default(false);
             $table->timestamps();
         });
     }
