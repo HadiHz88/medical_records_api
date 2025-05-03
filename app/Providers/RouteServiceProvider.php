@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\Route;
 
 class RouteServiceProvider extends ServiceProvider
 {
+    protected $middlewareAliases = [
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'template.access' => \App\Http\Middleware\CheckTemplateAccess::class,
+    ];
+
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
@@ -21,9 +26,5 @@ class RouteServiceProvider extends ServiceProvider
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
         });
-
-        // Register middleware aliases
-        Route::aliasMiddleware('admin', \App\Http\Middleware\AdminMiddleware::class);
-        Route::aliasMiddleware('template.access', \App\Http\Middleware\CheckTemplateAccess::class);
     }
-} 
+}
