@@ -92,8 +92,7 @@ class RecordController extends Controller
                             }
 
                             $value->update(['option_id' => $option->id]);
-                        }
-                        // Handle multi-value options (checkbox) - future enhancement
+                        } // Handle multi-value options (checkbox) - future enhancement
                         else if ($field->field_type === 'checkbox') {
                             $option = $field->options()
                                 ->where('option_value', $fieldData['value'])
@@ -120,24 +119,6 @@ class RecordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
-        }
-    }
-
-    /**
-     * Display the specified record with related data.
-     *
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function show(int $id): JsonResponse
-    {
-        try {
-            $record = Record::with(['template', 'values.field', 'values.option'])->findOrFail($id);
-            return response()->json($record);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Record not found',
-            ], 404);
         }
     }
 
@@ -195,37 +176,21 @@ class RecordController extends Controller
                     } else {
                         $value->update(['value' => $fieldData['value']]);
                     }
+                    // Handle single value options (select, radio)
+                    if (in_array($field->field_type, ['select', 'radio'])) {
+                        $option = $field->options()
+                            ->where('option_value', $fieldData['value'])
+                            ->first();
 
-                    if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
-                        // Handle single value options (select, radio)
-                        if (in_array($field->field_type, ['select', 'radio'])) {
-                            $option = $field->options()
-                                ->where('option_value', $fieldData['value'])
-                                ->first();
-
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
-                                ]);
-                            }
-
-                            $value->update(['option_id' => $option->id]);
+                        if (!$option) {
+                            throw ValidationException::withMessages([
+                                'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
+                            ]);
                         }
-                        // Handle multi-value options (checkbox) - future enhancement
-                        else if ($field->field_type === 'checkbox') {
-                            $option = $field->options()
-                                ->where('option_value', $fieldData['value'])
-                                ->first();
 
-                            if (!$option) {
-                                throw ValidationException::withMessages([
-                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
-                                ]);
-                            }
-
-                            $value->update(['option_id' => $option->id]);
-                        }
+                        $value->update(['option_id' => $option->id]);
                     }
+
                 } elseif ($value) {
                     $value->delete();
                 }
@@ -240,6 +205,24 @@ class RecordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    /**
+     * Display the specified record with related data.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
+    {
+        try {
+            $record = Record::with(['template', 'values.field', 'values.option'])->findOrFail($id);
+            return response()->json($record);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Record not found',
+            ], 404);
         }
     }
 

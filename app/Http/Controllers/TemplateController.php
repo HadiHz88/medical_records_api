@@ -98,9 +98,13 @@ class TemplateController extends Controller
     public function show(int $id): JsonResponse
     {
         try {
-            $template = Template::with(['fields.options' => function ($query) {
-                $query->orderBy('display_order', 'asc');
-            }])->withCount('records')->findOrFail($id);
+            $template = Template::with([
+                'fields' => function ($query) {
+                    $query->orderBy('display_order', 'asc');
+                },
+                'fields.options'
+            ])->withCount('records')->findOrFail($id);
+
 
             return response()->json($template);
         } catch (ModelNotFoundException $e) {
