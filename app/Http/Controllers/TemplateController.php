@@ -44,10 +44,9 @@ class TemplateController extends Controller
             'fields.*.field_type' => 'required|string|in:text,select,radio,checkbox,date,number,boolean',
             'fields.*.is_required' => 'required|boolean',
             'fields.*.display_order' => 'required|integer|min:0',
-            'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|array',
-            'fields.*.options.*.option_name' => 'required|string|max:255',
-            'fields.*.options.*.option_value' => 'required|string|max:255',
-            'fields.*.options.*.display_order' => 'required|boolean',
+            'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|nullable|array',
+            'fields.*.options.*.option_name' => 'required_with:fields.*.options|string|max:255',
+            'fields.*.options.*.option_value' => 'required_with:fields.*.options|string|max:255',
         ]);
 
         try {
@@ -67,13 +66,12 @@ class TemplateController extends Controller
                     'display_order' => $fieldData['display_order'],
                 ]);
 
-                if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox'])) {
+                if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox']) && isset($fieldData['options'])) {
                     foreach ($fieldData['options'] as $optionData) {
                         Option::create([
                             'field_id' => $field->id,
                             'option_name' => $optionData['option_name'],
-                            'option_value' => $optionData['option_value'],
-                            'display_order' => $optionData['display_order'],
+                            'option_value' => $optionData['option_value']
                         ]);
                     }
                 }
@@ -139,10 +137,9 @@ class TemplateController extends Controller
                 'fields.*.field_type' => 'required|string|in:text,select,radio,checkbox,date,number,boolean',
                 'fields.*.is_required' => 'required|boolean',
                 'fields.*.display_order' => 'required|integer|min:0',
-                'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|array',
-                'fields.*.options.*.option_name' => 'required|string|max:255',
-                'fields.*.options.*.option_value' => 'required|string|max:255',
-                'fields.*.options.*.display_order' => 'required|boolean',
+                'fields.*.options' => 'required_if:fields.*.field_type,select,radio,checkbox|nullable|array',
+                'fields.*.options.*.option_name' => 'required_with:fields.*.options|string|max:255',
+                'fields.*.options.*.option_value' => 'required_with:fields.*.options|string|max:255',
             ]);
 
             if (isset($validated['name'])) {
@@ -166,13 +163,12 @@ class TemplateController extends Controller
                         'display_order' => $fieldData['display_order'],
                     ]);
 
-                    if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox'])) {
+                    if (in_array($fieldData['field_type'], ['select', 'radio', 'checkbox']) && isset($fieldData['options'])) {
                         foreach ($fieldData['options'] as $optionData) {
                             Option::create([
                                 'field_id' => $field->id,
                                 'option_name' => $optionData['option_name'],
                                 'option_value' => $optionData['option_value'],
-                                'display_order' => $optionData['display_order'],
                             ]);
                         }
                     }

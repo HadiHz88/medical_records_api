@@ -24,7 +24,6 @@ class Option extends Model
         'field_id',      // Foreign key referencing the fields table
         'option_name',   // The name of the option
         'option_value',  // The value of the option
-        'display_order', // The order in which the option is displayed
     ];
 
     /**

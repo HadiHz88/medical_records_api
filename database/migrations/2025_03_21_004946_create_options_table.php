@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignIdFor(Field::class)->constrained()->cascadeOnDelete();
             $table->string('option_name');
             $table->string('option_value');
-            $table->boolean('display_order');
             $table->timestamps();
         });
     }
