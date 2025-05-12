@@ -43,9 +43,24 @@ class RecordController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get the template to validate that all required fields are provided
+            $template = Template::with('fields')->findOrFail($validated['template_id']);
+
             $record = Record::create([
                 'template_id' => $validated['template_id'],
             ]);
+
+            // Create a lookup array for quick field access
+            $providedFields = collect($validated['fields'])->keyBy('field_id');
+
+            // Check that all required fields are provided
+            foreach ($template->fields as $templateField) {
+                if ($templateField->is_required && !$providedFields->has($templateField->id)) {
+                    throw ValidationException::withMessages([
+                        'fields' => "Field {$templateField->field_name} is required"
+                    ]);
+                }
+            }
 
             foreach ($validated['fields'] as $fieldData) {
                 $field = Field::find($fieldData['field_id']);
@@ -64,17 +79,34 @@ class RecordController extends Controller
                     ]);
 
                     if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
-                        $option = $field->options()
-                            ->where('option_value', $fieldData['value'])
-                            ->first();
+                        // Handle single value options (select, radio)
+                        if (in_array($field->field_type, ['select', 'radio'])) {
+                            $option = $field->options()
+                                ->where('option_value', $fieldData['value'])
+                                ->first();
 
-                        if (!$option) {
-                            throw ValidationException::withMessages([
-                                'fields' => "Invalid option value for field {$field->field_name}"
-                            ]);
+                            if (!$option) {
+                                throw ValidationException::withMessages([
+                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
+                                ]);
+                            }
+
+                            $value->update(['option_id' => $option->id]);
                         }
+                        // Handle multi-value options (checkbox) - future enhancement
+                        else if ($field->field_type === 'checkbox') {
+                            $option = $field->options()
+                                ->where('option_value', $fieldData['value'])
+                                ->first();
 
-                        $value->update(['option_id' => $option->id]);
+                            if (!$option) {
+                                throw ValidationException::withMessages([
+                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
+                                ]);
+                            }
+
+                            $value->update(['option_id' => $option->id]);
+                        }
                     }
                 }
             }
@@ -83,7 +115,7 @@ class RecordController extends Controller
 
             return response()->json([
                 'message' => 'Record created successfully',
-                'record' => $record->load('values.field', 'values.option'),
+                'record' => $record->load(['template', 'values.field', 'values.option']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -121,13 +153,25 @@ class RecordController extends Controller
         try {
             DB::beginTransaction();
 
-            $record = Record::findOrFail($id);
+            $record = Record::with('template.fields')->findOrFail($id);
 
             $validated = $request->validate([
                 'fields' => 'required|array',
                 'fields.*.field_id' => 'required|exists:fields,id',
                 'fields.*.value' => 'required',
             ]);
+
+            // Create a lookup array for quick field access
+            $providedFields = collect($validated['fields'])->keyBy('field_id');
+
+            // Check that all required fields are provided
+            foreach ($record->template->fields as $templateField) {
+                if ($templateField->is_required && !$providedFields->has($templateField->id)) {
+                    throw ValidationException::withMessages([
+                        'fields' => "Field {$templateField->field_name} is required"
+                    ]);
+                }
+            }
 
             foreach ($validated['fields'] as $fieldData) {
                 $field = Field::find($fieldData['field_id']);
@@ -153,17 +197,34 @@ class RecordController extends Controller
                     }
 
                     if (in_array($field->field_type, ['select', 'radio', 'checkbox'])) {
-                        $option = $field->options()
-                            ->where('option_value', $fieldData['value'])
-                            ->first();
+                        // Handle single value options (select, radio)
+                        if (in_array($field->field_type, ['select', 'radio'])) {
+                            $option = $field->options()
+                                ->where('option_value', $fieldData['value'])
+                                ->first();
 
-                        if (!$option) {
-                            throw ValidationException::withMessages([
-                                'fields' => "Invalid option value for field {$field->field_name}"
-                            ]);
+                            if (!$option) {
+                                throw ValidationException::withMessages([
+                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
+                                ]);
+                            }
+
+                            $value->update(['option_id' => $option->id]);
                         }
+                        // Handle multi-value options (checkbox) - future enhancement
+                        else if ($field->field_type === 'checkbox') {
+                            $option = $field->options()
+                                ->where('option_value', $fieldData['value'])
+                                ->first();
 
-                        $value->update(['option_id' => $option->id]);
+                            if (!$option) {
+                                throw ValidationException::withMessages([
+                                    'fields' => "Invalid option value '{$fieldData['value']}' for field {$field->field_name}"
+                                ]);
+                            }
+
+                            $value->update(['option_id' => $option->id]);
+                        }
                     }
                 } elseif ($value) {
                     $value->delete();

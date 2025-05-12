@@ -43,6 +43,11 @@ class DatabaseSeeder extends Seeder
         Admin::create([
             'user_id' => $adminUser->id,
         ]);
+
+        $this->call([
+            TemplateSeeder::class,
+            RecordSeeder::class,
+        ]);
     }
 }
 
